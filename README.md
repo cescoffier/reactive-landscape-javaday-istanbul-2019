@@ -1,6 +1,6 @@
 #The Reactive Landscape
 
-Slides and demo presented at Devoxx UK 2017.
+Slides and demo presented at DevNation Live 17.
  
 ## Demo
 

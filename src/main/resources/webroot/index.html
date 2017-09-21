@@ -1,0 +1,70 @@
+<html>
+<head>
+    <title>Products</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+            <h1>My Products</h1>
+        </div>
+    </div>
+    <div class="row">
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Price</th>
+            </tr>
+            </thead>
+            <tbody id="products">
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<script src="libs/jsonpipe.js"></script>
+<script src="libs/jquery.js"></script>
+<script src="libs/bootstrap.js"></script>
+<script src="libs/sockjs.min.js"></script>
+<script src='libs/vertx-eventbus.js'></script>
+
+<script>
+    jsonpipe.flow('/products', {
+        "success": function (data) {
+            $("#products")
+                .append("<tr><td>" + data.id + "</td>" +
+                    "<td>" + data.name + "</td>" +
+                    "<td>" + data.price + "</td></tr>");
+        },
+        "error": function (errorMsg) {
+            // Something wrong happened, check the error message
+        },
+        "complete": function (statusText) {
+            console.log("Done")
+        },
+        "timeout": 3000
+    });
+
+
+    var eb = new EventBus('http://localhost:8080/eventbus');
+
+    eb.onopen = function () {
+        eb.registerHandler('products', function (error,
+                                                 msg) {
+            var data = JSON.parse(msg["body"]);
+            $("#products")
+                .append("<tr><td>" + data.id + "</td>" +
+                    "<td>" + data.name + "</td>" +
+                    "<td>" + data.price + "</td></tr>");
+        });
+    };
+
+</script>
+</body>
+</html>

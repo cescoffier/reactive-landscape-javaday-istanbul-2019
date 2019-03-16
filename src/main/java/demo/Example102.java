@@ -11,7 +11,7 @@ public class Example102 extends AbstractVerticle {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         vertx.createHttpServer()
             .requestHandler(req ->
                 req.response().end(Thread.currentThread().getName())

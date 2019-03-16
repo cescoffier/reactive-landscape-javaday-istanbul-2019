@@ -9,9 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class PricerService extends AbstractVerticle {
 
     public static void main(String[] args) {
@@ -19,17 +16,18 @@ public class PricerService extends AbstractVerticle {
         vertx.deployVerticle(PricerService.class.getName());
     }
 
-    Map<String, Double> prices = new HashMap<>();
-    Random random = new Random();
+    private Map<String, Double> prices = new HashMap<>();
+    private Random random = new Random();
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         Router router = Router.router(vertx);
         router.get("/prices/:name").handler(rc -> {
             String name = rc.pathParam("name");
             Double price = prices
                 .computeIfAbsent(name,
                     k -> (double) random.nextInt(50));
+            System.out.println("Getting price for " + name + " : " + price);
             rc.response().end(new JsonObject().put("name", name)
                 .put("price", price).encodePrettily());
         });

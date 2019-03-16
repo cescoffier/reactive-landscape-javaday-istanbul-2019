@@ -2,8 +2,10 @@ package app;
 
 import app.utilities.AuditVerticle;
 import app.utilities.Database;
+import app.utilities.Hosts;
 import app.utilities.Product;
 import io.reactivex.Single;
+import io.vertx.core.Future;
 import io.vertx.core.json.Json;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
@@ -22,18 +24,24 @@ import static app.utilities.SockJsHelper.getSockJsHandler;
 public class App104 extends AbstractVerticle {
 
     public static void main(String[] args) {
+        long begin = System.currentTimeMillis();
         Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(App104.class.getName());
-        vertx.deployVerticle(AuditVerticle.class.getName());
+        vertx.deployVerticle(new App104());
+        vertx.deployVerticle(new AuditVerticle(), done -> {
+            long end = System.currentTimeMillis();
+            if (done.succeeded()) {
+                System.out.println("Application started in " + (end - begin) + " ms");
+            }
+        });
     }
 
     private Database database;
     private WebClient pricer;
 
     @Override
-    public void start() throws Exception {
+    public void start(Future<Void> done) {
         pricer = WebClient.create(vertx,
-            new WebClientOptions().setDefaultPort(8081));
+            new WebClientOptions().setDefaultPort(8081).setDefaultHost(Hosts.getHost()));
 
         Router router = Router.router(vertx);
         router.get("/eventbus/*").handler(getSockJsHandler(vertx));
@@ -49,9 +57,9 @@ public class App104 extends AbstractVerticle {
             .flatMap(db -> {
                 database = db;
                 return vertx.createHttpServer()
-                    .requestHandler(router::accept)
+                    .requestHandler(router)
                     .rxListen(8080);
-            }).subscribe();
+            }).subscribe(server-> done.complete());
     }
 
     private void add(RoutingContext rc) {
@@ -64,7 +72,7 @@ public class App104 extends AbstractVerticle {
             })
             .subscribe(
                 p -> {
-                    String json = Json.encode(p);
+                    String json = p.toJson().encode();
                     rc.response().setStatusCode(201).end(json);
                     vertx.eventBus().publish("products", json);
                 },
@@ -95,8 +103,8 @@ public class App104 extends AbstractVerticle {
                         p.setPrice(json.getDouble("price")))
             )
             .subscribe(
-                p -> response.write(Json.encode(p) + " \n\n"),
-                rc::fail,
+                p -> response.write(p.toJson().encode() + " \n\n"),
+                    rc::fail,
                 response::end);
     }
 }

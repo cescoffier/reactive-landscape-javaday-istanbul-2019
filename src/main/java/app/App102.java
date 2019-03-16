@@ -13,9 +13,6 @@ import io.vertx.reactivex.ext.web.client.WebClient;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
 import io.vertx.reactivex.ext.web.handler.StaticHandler;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class App102 extends AbstractVerticle {
 
     public static void main(String[] args) {
@@ -27,10 +24,10 @@ public class App102 extends AbstractVerticle {
     private WebClient pricer;
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         pricer = WebClient.create(vertx, new WebClientOptions()
-            .setDefaultHost("localhost")
-            .setDefaultPort(8081)
+                .setDefaultHost("localhost")
+                .setDefaultPort(8081)
         );
 
         Router router = Router.router(vertx);
@@ -40,39 +37,39 @@ public class App102 extends AbstractVerticle {
         router.post("/products").handler(this::add);
 
         Database.initialize(vertx)
-            .flatMap(db -> {
-                database = db;
-                return vertx.createHttpServer()
-                    .requestHandler(router::accept)
-                    .rxListen(8080);
-            }).subscribe();
+                .flatMap(db -> {
+                    database = db;
+                    return vertx.createHttpServer()
+                            .requestHandler(router)
+                            .rxListen(8080);
+                }).subscribe();
     }
 
     private void add(RoutingContext rc) {
         String name = rc.getBodyAsString();
         database.insert(name)
-            .subscribe(
-                p -> rc.response().setStatusCode(201)
-                    .end(Json.encode(p)),
-                rc::fail
-            );
+                .subscribe(
+                        p -> rc.response().setStatusCode(201)
+                                .end(Json.encode(p)),
+                        rc::fail
+                );
     }
 
     private void list(RoutingContext rc) {
         HttpServerResponse response = rc.response().setChunked(true);
         database.retrieve()
-            .flatMapSingle(p ->
-                pricer
-                    .get("/prices/" + p.getName())
-                    .rxSend()
-                    .map(HttpResponse::bodyAsJsonObject)
-                    .map(json ->
-                        p.setPrice(json.getDouble("price")))
-            )
-            .subscribe(
-                p -> response.write(Json.encode(p) + " \n\n"),
-                rc::fail,
-                response::end);
+                .flatMapSingle(p ->
+                        pricer
+                                .get("/prices/" + p.getName())
+                                .rxSend()
+                                .map(HttpResponse::bodyAsJsonObject)
+                                .map(json ->
+                                        p.setPrice(json.getDouble("price")))
+                )
+                .subscribe(
+                        p -> response.write(Json.encode(p) + " \n\n"),
+                        rc::fail,
+                        response::end);
     }
 
 }

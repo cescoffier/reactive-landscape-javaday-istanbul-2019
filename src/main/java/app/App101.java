@@ -10,9 +10,6 @@ import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
 import io.vertx.reactivex.ext.web.handler.StaticHandler;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class App101 extends AbstractVerticle {
 
     public static void main(String[] args) {
@@ -23,7 +20,7 @@ public class App101 extends AbstractVerticle {
     private Database database;
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         Router router = Router.router(vertx);
         router.get("/assets/*").handler(StaticHandler.create());
         router.get("/products").handler(this::list);
@@ -34,7 +31,7 @@ public class App101 extends AbstractVerticle {
             .flatMap(db -> {
                 database = db;
                 return vertx.createHttpServer()
-                    .requestHandler(router::accept)
+                    .requestHandler(router)
                     .rxListen(8080);
             }).subscribe();
     }
@@ -45,7 +42,7 @@ public class App101 extends AbstractVerticle {
             .subscribe(
                 p -> rc.response().setStatusCode(201)
                     .end(Json.encode(p)),
-                rc::fail
+                    rc::fail
             );
     }
 

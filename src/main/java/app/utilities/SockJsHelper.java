@@ -7,9 +7,6 @@ import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.handler.sockjs.SockJSHandler;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class SockJsHelper {
 
     public static Handler<RoutingContext> getSockJsHandler(Vertx vertx) {

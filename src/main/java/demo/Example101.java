@@ -14,7 +14,7 @@ public class Example101 extends AbstractVerticle {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         Flowable<Integer> obs1 = Flowable.range(1, 10);
         Flowable<Integer> obs2 = obs1.map(i -> i + 1);
         Flowable<Integer> obs3 = obs2.window(2)

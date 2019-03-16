@@ -15,9 +15,6 @@ import io.vertx.reactivex.ext.web.handler.StaticHandler;
 
 import static app.utilities.SockJsHelper.getSockJsHandler;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class App103 extends AbstractVerticle {
 
     public static void main(String[] args) {
@@ -29,7 +26,7 @@ public class App103 extends AbstractVerticle {
     private WebClient pricer;
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         pricer = WebClient.create(vertx, new WebClientOptions()
             .setDefaultHost("localhost")
             .setDefaultPort(8081)
@@ -46,7 +43,7 @@ public class App103 extends AbstractVerticle {
             .flatMap(db -> {
                 database = db;
                 return vertx.createHttpServer()
-                    .requestHandler(router::accept)
+                    .requestHandler(router)
                     .rxListen(8080);
             }).subscribe();
     }

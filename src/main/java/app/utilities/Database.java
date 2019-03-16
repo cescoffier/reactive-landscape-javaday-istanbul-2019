@@ -1,70 +1,90 @@
 package app.utilities;
 
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.Vertx;
-import io.vertx.reactivex.ext.jdbc.JDBCClient;
-import io.vertx.reactivex.ext.sql.SQLRowStream;
+import io.reactiverse.pgclient.PgPoolOptions;
+import io.reactiverse.reactivex.pgclient.PgClient;
+import io.reactiverse.reactivex.pgclient.PgPool;
+import io.reactiverse.reactivex.pgclient.Tuple;
+import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
+import io.vertx.reactivex.core.Vertx;
 
-/**
- * @author <a href="http://escoffier.me">Clement Escoffier</a>
- */
 public class Database {
 
-    private JDBCClient client;
+    private PgPool client;
 
-    private static final String INSERT = "INSERT INTO products (name) VALUES (?)";
+    private static final String INSERT = "INSERT INTO products (name) VALUES ($1) RETURNING (id)";
 
     private static final String SELECT_ALL = "SELECT * FROM products";
 
-
     public Database(Vertx vertx) {
-        client = JDBCClient.createShared(vertx,
-            new JsonObject()
-                .put("url", "jdbc:hsqldb:mem:test?shutdown=true")
-                .put("driver_class", "org.hsqldb.jdbcDriver")
-                .put("max_pool_size", 30));
+
+        PgPoolOptions options = new PgPoolOptions()
+                .setPort(5432)
+                .setHost(Hosts.getHost())
+                .setDatabase("rest-crud")
+                .setUser("restcrud")
+                .setPassword("restcrud")
+                .setMaxSize(50);
+
+        // Create the client pool
+        client = PgClient.pool(vertx, options);
 
     }
+
+    /**
+     * INSERT INTO products (name) values ('Apple');
+     * INSERT INTO products (name) values ('Orange');
+     * INSERT INTO products (name) values ('Pear');
+     */
 
     public static Single<Database> initialize(Vertx vertx) {
         Database database = new Database(vertx);
         return database.client.rxGetConnection()
-            .flatMapCompletable(connection ->
-                vertx.fileSystem().rxReadFile("ddl.sql")
-                    .flatMapPublisher(buffer ->
-                        Flowable.fromArray(buffer
-                            .toString().split(";")))
-                    .flatMapCompletable(connection::rxExecute)
-                    .doAfterTerminate(connection::close)
-            )
-            .andThen(Single.just(database));
+                .flatMap(connection ->
+                        vertx.fileSystem().rxReadFile("ddl.sql")
+                                .flatMapPublisher(buffer ->
+                                        Flowable.fromArray(buffer
+                                                .toString().split(";")))
+                                .flatMapSingle(connection::rxQuery)
+                                .ignoreElements()
+                                .doAfterTerminate(connection::close)
+                                .toSingleDefault(connection)
+                ).flatMapCompletable(connection ->
+                        connection.rxQuery(SELECT_ALL)
+                                .flatMapCompletable(set -> {
+                                    if (set.rowCount() == 0) {
+                                        return connection
+                                                .rxQuery("INSERT INTO products (name) values ('Apple')")
+                                                .flatMap(x -> connection
+                                                        .rxQuery("INSERT INTO products (name) values ('Orange')"))
+                                                .flatMap(x -> connection
+                                                        .rxQuery("INSERT INTO products (name) values ('Pear')"))
+                                                .ignoreElement();
+                                    } else {
+                                        return Completable.complete();
+                                    }
+                                })
+                ).andThen(Single.just(database));
     }
 
     public Flowable<Product> retrieve() {
-        return client.rxGetConnection()
-            .flatMapPublisher(conn ->
-                conn
-                    .rxQueryStream(SELECT_ALL)
-                    .flatMapPublisher(SQLRowStream::toFlowable)
-                    .doAfterTerminate(conn::close)
-            )
-            .map(Product::new);
+        return client
+                .rxBegin()
+                .flatMapPublisher(tx -> tx
+                        .rxPrepare(SELECT_ALL)
+                        .flatMapPublisher(query -> query.createStream(3, Tuple.tuple()).toFlowable())
+                        .map(Product::new)
+                        .doAfterTerminate(tx::commit)
+                );
     }
 
     public Single<Product> insert(String product) {
-        return client.rxGetConnection()
-            .flatMap(conn -> {
-                JsonArray params = new JsonArray().add(product);
-                return conn
-                    .rxUpdateWithParams(INSERT, params)
-                    .map(ur -> new Product(product,
-                        ur.getKeys().getInteger(0)))
-                    .doAfterTerminate(conn::close);
-            });
+        String name = product.trim();
+        return client
+                .rxPreparedQuery(INSERT, Tuple.of(name))
+                .map(set -> set.iterator().next())
+                .map(ur -> new Product(name, ur.getInteger("id")));
 
     }
-
 }

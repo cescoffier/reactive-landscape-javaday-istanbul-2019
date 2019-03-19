@@ -1,6 +1,6 @@
 # The Reactive Landscape
 
-Slides and demo presented at DevNation Live 17.
+Slides and demo presented at JavaDay Istanbul 2019
  
 ## Demo
 
